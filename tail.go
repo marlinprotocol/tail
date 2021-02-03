@@ -318,8 +318,7 @@ func (tail *Tail) tailFileSync() {
 				return
 			}
 		} else {
-			// Send a signal to caller asking a shutdown
-			tail.Lines <- &Line{Err: err}
+			// non-EOF error
 			tail.Killf("Error reading %s: %s", tail.Filename, err)
 			return
 		}
@@ -329,6 +328,8 @@ func (tail *Tail) tailFileSync() {
 			if tail.Err() == errStopAtEOF {
 				continue
 			}
+			// Send a signal to caller asking a shutdown
+			tail.Lines <- &Line{Err: err}
 			return
 		default:
 		}
