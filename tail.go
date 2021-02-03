@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
-	// "io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -275,24 +273,31 @@ func (tail *Tail) tailFileSync() {
 
 		// Process `line` even if err is EOF.
 		if err == nil {
-			_ = !tail.sendLine(line, noffset)
-			// if cooloff {
-			// 	// Wait a second before seeking till the end of
-			// 	// file when rate limit is reached.
-			// 	msg := ("Too much log activity; waiting a second " +
-			// 		"before resuming tailing")
-			// 	tail.Lines <- &Line{msg, time.Now(), errors.New(msg), 0}
-			// 	select {
-			// 	case <-time.After(time.Second):
-			// 	case <-tail.Dying():
-			// 		return
-			// 	}
-			// 	if err := tail.seekEnd(); err != nil {
-			// 		tail.Kill(err)
-			// 		return
-			// 	}
-			// }
+			cooloff = !tail.sendLine(line, noffset)
+			if cooloff {
+				// Wait a second before seeking till the end of
+				// file when rate limit is reached.
+				msg := ("Too much log activity; waiting a second " +
+					"before resuming tailing")
+				tail.Lines <- &Line{msg, time.Now(), errors.New(msg), 0}
+				select {
+				case <-time.After(time.Second):
+				case <-tail.Dying():
+					return
+				}
+				if err := tail.seekEnd(); err != nil {
+					tail.Kill(err)
+					return
+				}
+			}
 		} else if err == io.EOF {
+			if !tail.Follow {
+				if line != "" {
+					tail.sendLine(line)
+				}
+				return
+			}
+
 			if tail.Follow && line != "" {
 				// this has the potential to never return the last line if
 				// it's not followed by a newline; seems a fair trade here

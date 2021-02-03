@@ -10,8 +10,8 @@ RUN go get -v marlinstash
 RUN go test -v marlinstash
 
 # expecting to install successfully
-RUN go install -v marlinstash
-RUN go install -v marlinstashmd/gotail
+RUN go install -v github.com/hpcloud/tail
+RUN go install -v github.com/hpcloud/cmd/gotail
 
 RUN $GOPATH/bin/gotail -h || true
 
