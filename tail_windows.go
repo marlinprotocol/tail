@@ -3,7 +3,7 @@
 package tail
 
 import (
-	"github.com/hpcloud/tail/winfile"
+	"marlinstash/tail/winfile"
 	"os"
 )
 
