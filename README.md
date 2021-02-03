@@ -1,7 +1,5 @@
-[![Build Status](https://travis-ci.org/hpcloud/tail.svg)](https://travis-ci.org/hpcloud/tail)
-[![Build status](https://ci.appveyor.com/api/projects/status/vrl3paf9md0a7bgk/branch/master?svg=true)](https://ci.appveyor.com/project/Nino-K/tail/branch/master)
-
-# Go package for tail-ing files
+# Go package for tail-ing files (modified for marlinstash)
+**NOTE**: This is a modified version of `hpcloud/tail` - modified to work well with `marlinprotocol/marlinstash`.
 
 A Go package striving to emulate the features of the BSD `tail` program. 
 
@@ -12,17 +10,10 @@ for line := range t.Lines {
 }
 ```
 
-See [API documentation](http://godoc.org/marlinstash/tail).
+See [API documentation](http://godoc.org/hpcloud/tail).
 
 ## Log rotation
 
 Tail comes with full support for truncation/move detection as it is
 designed to work with log rotation tools.
 
-## Installing
-
-    go get marlinstash..
-
-## Windows support
-
-This package [needs assistance](https://marlinstashabels/Windows) for full Windows support.
