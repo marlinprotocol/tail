@@ -273,7 +273,7 @@ func (tail *Tail) tailFileSync() {
 
 		// Process `line` even if err is EOF.
 		if err == nil {
-			cooloff = !tail.sendLine(line, noffset)
+			cooloff := !tail.sendLine(line, noffset)
 			if cooloff {
 				// Wait a second before seeking till the end of
 				// file when rate limit is reached.
