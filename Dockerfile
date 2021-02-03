@@ -1,17 +1,17 @@
 FROM golang
 
-RUN mkdir -p $GOPATH/src/marlinstash/tail/
-ADD . $GOPATH/src/marlinstash
+RUN mkdir -p $GOPATH/src/github.com/hpcloud/tail/
+ADD . $GOPATH/src/github.com/hpcloud/tail/
 
 # expecting to fetch dependencies successfully.
-RUN go get -v marlinstash
+RUN go get -v github.com/hpcloud/tail
 
 # expecting to run the test successfully.
-RUN go test -v marlinstash
+RUN go test -v github.com/hpcloud/tail
 
 # expecting to install successfully
 RUN go install -v github.com/hpcloud/tail
-RUN go install -v github.com/hpcloud/cmd/gotail
+RUN go install -v github.com/hpcloud/tail/cmd/gotail
 
 RUN $GOPATH/bin/gotail -h || true
 
