@@ -15,9 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hpcloud/tail/ratelimiter"
-	"github.com/hpcloud/tail/util"
-	"github.com/hpcloud/tail/watch"
+	"marlinstash/tail/ratelimiter"
+	"marlinstash/tail/util"
+	"marlinstash/tail/watch"
+
 	"gopkg.in/tomb.v1"
 )
 
@@ -26,14 +27,15 @@ var (
 )
 
 type Line struct {
-	Text string
-	Time time.Time
-	Err  error // Error from tail
+	Text   string
+	Time   time.Time
+	Err    error // Error from tail
+	Offset uint64
 }
 
 // NewLine returns a Line with present time.
 func NewLine(text string) *Line {
-	return &Line{text, time.Now(), nil}
+	return &Line{text, time.Now(), nil, 0}
 }
 
 // SeekInfo represents arguments to `os.Seek`
@@ -207,20 +209,21 @@ func (tail *Tail) reopen() error {
 	return nil
 }
 
-func (tail *Tail) readLine() (string, error) {
+func (tail *Tail) readLine() (string, uint64, error) {
 	tail.lk.Lock()
 	line, err := tail.reader.ReadString('\n')
+	llen := uint64(len(line))
 	tail.lk.Unlock()
 	if err != nil {
 		// Note ReadString "returns the data read before the error" in
 		// case of an error, including EOF, so we return it as is. The
 		// caller is expected to process it if err is EOF.
-		return line, err
+		return line, llen, err
 	}
 
 	line = strings.TrimRight(line, "\n")
 
-	return line, err
+	return line, llen, err
 }
 
 func (tail *Tail) tailFileSync() {
@@ -241,7 +244,7 @@ func (tail *Tail) tailFileSync() {
 	// Seek to requested location on first open of the file.
 	if tail.Location != nil {
 		_, err := tail.file.Seek(tail.Location.Offset, tail.Location.Whence)
-		tail.Logger.Printf("Seeked %s - %+v\n", tail.Filename, tail.Location)
+		// tail.Logger.Printf("Seeked %s - %+v\n", tail.Filename, tail.Location)
 		if err != nil {
 			tail.Killf("Seek error on %s: %s", tail.Filename, err)
 			return
@@ -265,17 +268,18 @@ func (tail *Tail) tailFileSync() {
 			}
 		}
 
-		line, err := tail.readLine()
+		line, llen, err := tail.readLine()
+		noffset := uint64(offset) + llen
 
 		// Process `line` even if err is EOF.
 		if err == nil {
-			cooloff := !tail.sendLine(line)
+			cooloff := !tail.sendLine(line, noffset)
 			if cooloff {
 				// Wait a second before seeking till the end of
 				// file when rate limit is reached.
 				msg := ("Too much log activity; waiting a second " +
 					"before resuming tailing")
-				tail.Lines <- &Line{msg, time.Now(), errors.New(msg)}
+				tail.Lines <- &Line{msg, time.Now(), errors.New(msg), 0}
 				select {
 				case <-time.After(time.Second):
 				case <-tail.Dying():
@@ -303,7 +307,6 @@ func (tail *Tail) tailFileSync() {
 					return
 				}
 			}
-
 			// When EOF is reached, wait for more data to become
 			// available. Wait strategy is based on the `tail.watcher`
 			// implementation (inotify or polling).
@@ -325,6 +328,8 @@ func (tail *Tail) tailFileSync() {
 			if tail.Err() == errStopAtEOF {
 				continue
 			}
+			// Send a signal to caller asking a shutdown
+			tail.Lines <- &Line{Err: err}
 			return
 		default:
 		}
@@ -404,7 +409,7 @@ func (tail *Tail) seekTo(pos SeekInfo) error {
 
 // sendLine sends the line(s) to Lines channel, splitting longer lines
 // if necessary. Return false if rate limit is reached.
-func (tail *Tail) sendLine(line string) bool {
+func (tail *Tail) sendLine(line string, offset uint64) bool {
 	now := time.Now()
 	lines := []string{line}
 
@@ -414,7 +419,7 @@ func (tail *Tail) sendLine(line string) bool {
 	}
 
 	for _, line := range lines {
-		tail.Lines <- &Line{line, now, nil}
+		tail.Lines <- &Line{line, now, nil, offset}
 	}
 
 	if tail.Config.RateLimiter != nil {
